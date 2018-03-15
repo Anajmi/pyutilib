@@ -80,7 +80,6 @@ setup(name="PyUtilib",
         'Topic :: Utilities'],
       packages=packages,
       keywords=['utility'],
-      namespace_packages=['pyutilib', 'pyutilib.component'],
       install_requires=requires,
       entry_points="""
         [pyutilib.component]
