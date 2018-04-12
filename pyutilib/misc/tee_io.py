@@ -8,31 +8,44 @@
 #  _________________________________________________________________________
 
 import sys
-try:
-    from io import StringIO
-except:
-    from StringIO import StringIO
+import six
 
 
 class TeeStream(object):
-    """This class implements a simple 'Tee' of the specified python
-    stream.  Since this presents a full file interface, TeeStream
-    objects may be arbitrarily nested."""
+    """This class implements a simple output stream 'Tee'.
 
-    def __init__(self, stream):
-        self.stream = stream
-        self.buffer = StringIO()
+    This class presents a standard FILE interface.  Methods called on
+    this object are passed verbatim to each of the underlying streams
+    passed to the constructor.  Since this presents a full file
+    interface, TeeStream objects may be arbitrarily nested.
+
+    """
+
+    def __init__(self, *streams):
+        if not streams:
+            raise ValueError("TeeStream not passed at least one output stream")
+        self.streams = stream
 
     def write(self, data):
-        self.buffer.write(data)
-        self.stream.write(data)
+        for stream in self.streams:
+            stream.write(data)
 
     def writelines(self, sequence):
         for x in sequence:
             self.write(x)
 
-    def reset(self):
-        self.buffer = StringIO()
+    def flush(self):
+        for stream in self.streams:
+            try:
+                stream.flush()
+            except:
+                pass
+
+    def close(self):
+        for stream in self.streams:
+            stream.close()
+
+    # TODO: determine if we should implement tell, seek, read, and readline
 
 
 class ConsoleBuffer(object):
@@ -43,16 +56,6 @@ class ConsoleBuffer(object):
     insufficient to 'wrap' the streams like the TeeStream class;
     instead, we must replace the standard stdout and stderr objects with
     our own duplicator."""
-
-    class _Duplicate(object):
-
-        def __init__(self, a, b):
-            self.a = a
-            self.b = b
-
-        def write(self, data):
-            self.a.write(data)
-            self.b.write(data)
 
     def __init__(self):
         self._dup_out = self._dup_err = None
@@ -82,9 +85,7 @@ class ConsoleBuffer(object):
                   "(attempting to reset() when stderr has been redirected " \
                   "away from this buffer).")
 
-        self.out = StringIO()
-        self.err = StringIO()
-        self._dup_out = sys.stdout = \
-                        ConsoleBuffer._Duplicate(self.out, self._raw_out)
-        self._dup_err = sys.stderr = \
-                        ConsoleBuffer._Duplicate(self.err, self._raw_err)
+        self.out = six.StringIO()
+        self.err = six.StringIO()
+        self._dup_out = sys.stdout = TeeStream(self.out, self._raw_out)
+        self._dup_err = sys.stderr = TeeStream(self.err, self._raw_err)
