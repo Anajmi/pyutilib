@@ -444,13 +444,25 @@ group, subparser, or (subparser, group)."""
             ( self,
               block_start= "\\begin{description}[topsep=0pt,parsep=0.5em,itemsep=-0.4em]\n",
               block_end=   "\\end{description}\n",
-              item_start=  "\\item[{%s}]\\hfill\n",
-              item_body=   "\\\\%s",
+              item_start=  "\\item[{%(name)s}]\\hfill\n",
+              item_body=   "\\\\%(doc)s",
               item_end=    "",
               indent_spacing=2,
               width=78,
               visibility=0
               ):
+        # Backwards compatibility with previous PyUtilib versions
+        if '%s' in block_start:
+            block_start = block_start.replace('%s','%(name)s')
+        if '%s' in block_end:
+            block_end = block_end.replace('%s','%(name)s')
+        if '%s' in item_start:
+            item_start = item_start.replace('%s','%(name)s')
+        if '%s' in item_end:
+            item_end = item_end.replace('%s','%(name)s')
+        if '%s' in item_body:
+            item_body = item_body.replace('%s','%(doc)s')
+
         os = six.StringIO()
         level = []
         lastObj = self
@@ -461,32 +473,24 @@ group, subparser, or (subparser, group)."""
                 while len(level) < lvl - 1:
                     level.append(None)
                 level.append(lastObj)
-                if '%s' in block_start:
-                    os.write(indent + block_start % lastObj.name())
-                elif block_start:
-                    os.write(indent + block_start)
+                if block_start:
+                    os.write(indent + block_start % {'name': lastObj.name()})
                 indent += ' ' * indent_spacing
             while len(level) > lvl:
                 _last = level.pop()
                 if _last is not None:
                     indent = indent[:-1 * indent_spacing]
-                    if '%s' in block_end:
-                        os.write(indent + block_end % _last.name())
-                    elif block_end:
-                        os.write(indent + block_end)
+                    if block_end:
+                        os.write(indent + block_end % {'name': _last.name()})
 
             lastObj = obj
-            if '%s' in item_start:
-                os.write(indent + item_start % obj.name())
-            elif item_start:
-                os.write(indent + item_start)
+            if item_start:
+                os.write(indent + item_start % {'name': obj.name()})
             _doc = obj._doc or obj._description or ""
             if _doc:
                 _wrapLines = '\n ' not in _doc
-                if '%s' in item_body:
-                    _doc = item_body % (_doc,)
-                elif _doc:
-                    _doc = item_body
+                if item_body:
+                    _doc = item_body % {'doc': _doc}
                 if _wrapLines:
                     doc_lines = wrap(
                         _doc,
@@ -499,17 +503,13 @@ group, subparser, or (subparser, group)."""
                 os.writelines('\n'.join(doc_lines))
                 if not doc_lines[-1].endswith("\n"):
                     os.write('\n')
-            if '%s' in item_end:
-                os.write(indent + item_end % obj.name())
-            elif item_end:
-                os.write(indent + item_end)
+            if item_end:
+                os.write(indent + item_end % {'name': obj.name()})
         while level:
             indent = indent[:-1 * indent_spacing]
             _last = level.pop()
-            if '%s' in block_end:
-                os.write(indent + block_end % _last.name())
-            else:
-                os.write(indent + block_end)
+            if block_end:
+                os.write(indent + block_end % {'name': _last.name()})
         return os.getvalue()
 
     def user_values(self):
